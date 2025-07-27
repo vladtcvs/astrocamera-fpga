@@ -1,0 +1,53 @@
+<?xml version='1.0' encoding='utf-8' ?>
+<!DOCTYPE		ispXCF	SYSTEM	"IspXCF.dtd" >
+<ispXCF version="3.14">
+	<Comment></Comment>
+	<Chain>
+		<Comm>JTAG</Comm>
+		<Device>
+			<SelectedProg value="TRUE"/>
+			<Pos>1</Pos>
+			<Vendor>Lattice</Vendor>
+			<Family>LatticeXP2</Family>
+			<Name>LFXP2-5E</Name>
+			<IDCode>0x01299043</IDCode>
+			<Package>All</Package>
+			<PON>LFXP2-5E</PON>
+			<Bypass>
+				<InstrLen>8</InstrLen>
+				<InstrVal>11111111</InstrVal>
+				<BScanLen>1</BScanLen>
+				<BScanVal>0</BScanVal>
+			</Bypass>
+			<File>/home/vlad/Develop/camera/camera-control-firmware/impl/pinwheel_fpga_impl.jed</File>
+			<MaskFile>/home/vlad/Aux/FPGA/lattice/data/vmdata/database/xpga/xp2/lfxp2-5.msk</MaskFile>
+			<FileTime>09/01/25 03:56:46</FileTime>
+			<JedecChecksum>0xE8C5</JedecChecksum>
+			<Operation>SRAM Program,Verify</Operation>
+			<Option>
+				<SVFVendor>JTAG STANDARD</SVFVendor>
+				<IOState>Leave Alone</IOState>
+				<PreloadLength>394</PreloadLength>
+				<IOVectorData>0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF</IOVectorData>
+				<Reinitialize value="TRUE"/>
+				<TCKFrequency>1.000000 MHz</TCKFrequency>
+				<Usercode>0xFFFFFFFF</Usercode>
+				<AccessMode>SRAM</AccessMode>
+			</Option>
+		</Device>
+	</Chain>
+	<ProjectOptions>
+		<Program>SEQUENTIAL</Program>
+		<Process>ENTIRED CHAIN</Process>
+		<OperationOverride>No Override</OperationOverride>
+		<StartTAP>TLR</StartTAP>
+		<EndTAP>TLR</EndTAP>
+		<VerifyUsercode value="FALSE"/>
+		<TCKDelay>1</TCKDelay>
+	</ProjectOptions>
+	<CableOptions>
+		<CableName>USB2</CableName>
+		<PortAdd>FTUSB-0</PortAdd>
+		<USBID>LATTICE FTUSB INTERFACE CABLE A Location 0000 Serial LATTICE FTUSB INTERFACE CABLE A</USBID>
+	</CableOptions>
+</ispXCF>
