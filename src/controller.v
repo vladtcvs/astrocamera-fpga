@@ -66,7 +66,7 @@ module controller(  input clk,
     wire flash_interface_busy;
     reg flash_busy = 1'b0;
 
-    localparam FLASH_SM_IDLE = 4'd0, FLASH_SM_READ = 4'd1, FLASH_SM_WRITE = 4'd2, FLASH_SM_ERR = 4'd14, FLASH_SM_FINAL = 4'd15;
+    localparam FLASH_SM_IDLE = 4'd0, FLASH_SM_READ = 4'd1, FLASH_SM_WRITE = 4'd2, FLASH_SM_WREN = 4'd3, FLASH_SM_WREN_FINISH = 4'd4, FLASH_SM_ERR = 4'd14, FLASH_SM_FINAL = 4'd15;
     reg [3:0] flash_sm;
 
     /* Common control */
@@ -187,6 +187,8 @@ module controller(  input clk,
     reg prev_ctl_op = 1'b0;
     reg prev_mem_addr_valid = 1'b0;
 
+    reg prev_mem_write_data_prepare = 1'b0;
+
     integer counter = 0;
 
     assign status = {flash_access_not_ready, flash_interface_busy,
@@ -216,24 +218,25 @@ module controller(  input clk,
 
         FLASH_SM_IDLE : begin
             flash_finalize_trigger <= 1'b0;
-            if (map_to_flash && !prev_mem_addr_valid && mem_addr_valid) begin
-                if (mem_read_data_prepare) begin
-                    flash_addr <= mem_addr;
+            if (map_to_flash) begin
+                if (!prev_mem_addr_valid && mem_addr_valid) begin
+                    if (mem_read_data_prepare) begin
+                        flash_addr <= mem_addr;
+                        flash_opcode_addr_trigger <= 1'b1;
+                        flash_data_trigger <= 1'b0;
+                        flash_opcode <= 8'h03;
+                        flash_addr_flag <= 1'b1;
+                        flash_sm <= FLASH_SM_READ;
+                    end else begin
+                        mem_invalid_operation <= 1'b1;
+                        flash_sm <= FLASH_SM_ERR;
+                    end
+                end
+                if (!prev_mem_write_data_prepare && mem_write_data_prepare) begin
+                    flash_addr_flag <= 1'b0;
+                    flash_opcode <= 8'h06;
                     flash_opcode_addr_trigger <= 1'b1;
-                    flash_data_trigger <= 1'b0;
-                    flash_opcode <= 8'h03;
-                    flash_addr_flag <= 1'b1;
-                    flash_sm <= FLASH_SM_READ;
-                end else if (mem_write_data_prepare) begin
-                    flash_addr <= mem_addr;
-                    flash_opcode_addr_trigger <= 1'b1;
-                    flash_data_trigger <= 1'b0;
-                    flash_opcode <= 8'h02;
-                    flash_addr_flag <= 1'b1;
-                    flash_sm <= FLASH_SM_WRITE;
-                end else begin
-                    mem_invalid_operation <= 1'b1;
-                    flash_sm <= FLASH_SM_ERR;
+                    flash_sm <= FLASH_SM_WREN;
                 end
             end
         end
@@ -257,7 +260,27 @@ module controller(  input clk,
             if (!mem_operation_progress)
                 flash_sm <= FLASH_SM_FINAL;
         end
-		
+
+        FLASH_SM_WREN : begin
+            if (!prev_flash_opcode_addr_completed && flash_opcode_addr_completed) begin
+                flash_finalize_trigger <= 1'b1;
+                flash_opcode_addr_trigger <= 1'b0;
+                flash_sm <= FLASH_SM_WREN_FINISH;
+            end
+        end
+
+        FLASH_SM_WREN_FINISH : begin
+            if (!flash_interface_busy && mem_addr_valid) begin
+                flash_finalize_trigger <= 1'b0;
+                flash_addr <= mem_addr;
+                flash_opcode_addr_trigger <= 1'b1;
+                flash_data_trigger <= 1'b0;
+                flash_opcode <= 8'h02;
+                flash_addr_flag <= 1'b1;
+                flash_sm <= FLASH_SM_WRITE;
+            end
+        end
+
         FLASH_SM_WRITE : begin
             if (!prev_mem_write_data_flag && mem_write_data_flag) begin
                 if (flash_interface_busy) begin
@@ -298,12 +321,16 @@ module controller(  input clk,
         prev_mem_read_data_flag <= mem_read_data_flag;
         prev_mem_write_data_flag <= mem_write_data_flag;
 
+        prev_mem_write_data_prepare <= mem_write_data_prepare;
+
         prev_flash_opcode_addr_completed <= flash_opcode_addr_completed;
         prev_flash_data_completed <= flash_data_completed;
         prev_flash_data_ready <= flash_data_ready;
 
         prev_ctl_op <= ctl_operation_progress;
         prev_mem_addr_valid <= mem_addr_valid;
+		
+
     end
 
 endmodule
