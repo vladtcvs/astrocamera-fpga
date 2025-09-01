@@ -21,8 +21,8 @@
 			</Bypass>
 			<File>/home/vlad/Develop/camera/camera-control-firmware/impl/pinwheel_fpga_impl.jed</File>
 			<MaskFile>/home/vlad/Aux/FPGA/lattice/data/vmdata/database/xpga/xp2/lfxp2-5.msk</MaskFile>
-			<FileTime>09/01/25 23:48:13</FileTime>
-			<JedecChecksum>0x8238</JedecChecksum>
+			<FileTime>09/02/25 00:27:52</FileTime>
+			<JedecChecksum>0x2E43</JedecChecksum>
 			<Operation>SRAM Program,Verify</Operation>
 			<Option>
 				<SVFVendor>JTAG STANDARD</SVFVendor>
