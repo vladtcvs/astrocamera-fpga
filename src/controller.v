@@ -66,6 +66,9 @@ module controller(  input clk,
     wire flash_interface_busy;
     reg flash_busy = 1'b0;
 
+    localparam FLASH_SM_IDLE = 4'd0, FLASH_SM_READ = 4'd1, FLASH_SM_WRITE = 4'd2, FLASH_SM_ERR = 4'd14, FLASH_SM_FINAL = 4'd15;
+    reg [3:0] flash_sm;
+
     /* Common control */
     reg map_to_flash = 1'b1;
     reg flash_sck_go = 1'b1;
@@ -206,84 +209,88 @@ module controller(  input clk,
                 map_to_flash <= ctl_write_data[2];
             end else if (ctl_addr == 8'h1) begin
                 flash_wel <= ctl_write_data[7];
-                if (ctl_write_data[7]) begin
-                    // send WREN command to flash
-                    flash_opcode <= 8'h06;
-                    flash_addr_flag <= 1'b0;
-                    flash_finalize_trigger <= 1'b0;
-                    flash_data_trigger <= 1'b0;
+            end
+        end
+
+        case (flash_sm)
+
+        FLASH_SM_IDLE : begin
+            flash_finalize_trigger <= 1'b0;
+            if (map_to_flash && !prev_mem_addr_valid && mem_addr_valid) begin
+                if (mem_read_data_prepare) begin
+                    flash_addr <= mem_addr;
                     flash_opcode_addr_trigger <= 1'b1;
+                    flash_data_trigger <= 1'b0;
+                    flash_opcode <= 8'h03;
+                    flash_addr_flag <= 1'b1;
+                    flash_sm <= FLASH_SM_READ;
+                end else if (mem_write_data_prepare) begin
+                    flash_addr <= mem_addr;
+                    flash_opcode_addr_trigger <= 1'b1;
+                    flash_data_trigger <= 1'b0;
+                    flash_opcode <= 8'h02;
+                    flash_addr_flag <= 1'b1;
+                    flash_sm <= FLASH_SM_WRITE;
+                end else begin
+                    mem_invalid_operation <= 1'b1;
+                    flash_sm <= FLASH_SM_ERR;
                 end
             end
         end
 
-        if (map_to_flash) begin
-            if (mem_operation_progress) begin
-                if (!prev_mem_addr_valid && mem_addr_valid) begin
-                    if (mem_read_data_prepare || mem_write_data_prepare) begin
-                        flash_addr <= mem_addr;
-                        flash_opcode_addr_trigger <= 1'b0;
-                        flash_finalize_trigger <= 1'b0;
-                        flash_data_trigger <= 1'b0;
-                        flash_opcode_addr_trigger <= 1'b1;
-                    end else begin
-                        mem_invalid_operation <= 1'b1;
-                    end
-
-                    if (mem_read_data_prepare) begin
-                        flash_opcode <= 8'h03;
-                        flash_addr_flag <= 1'b1;
-                    end
-
-                    if (mem_write_data_prepare) begin
-                        flash_opcode <= 8'h02;
-                        flash_addr_flag <= 1'b1;
-                    end
+        FLASH_SM_READ : begin
+            if (!prev_mem_read_data_flag && mem_read_data_flag) begin
+                if (flash_interface_busy) begin
+                    flash_access_not_ready <= 1'b1;
+                    flash_sm <= FLASH_SM_ERR;
+                end else begin
+                    flash_data_trigger <= 1'b1;
                 end
-
-                if (!flash_access_not_ready && !prev_mem_read_data_flag && mem_read_data_flag) begin
-                    if (flash_interface_busy) begin
-                        flash_access_not_ready <= 1'b1;
-                        flash_finalize_trigger <= 1'b1;
-                    end else begin
-                        flash_data_trigger <= 1'b1;
-                    end
-                end
-
-                if (!flash_access_not_ready && !prev_mem_write_data_flag && mem_write_data_flag) begin
-                    if (flash_interface_busy) begin
-                        flash_access_not_ready <= 1'b1;
-                        flash_finalize_trigger <= 1'b1;
-                    end else begin
-                        flash_write <= mem_write_data;
-                        flash_data_trigger <= 1'b1;
-                    end
-                end
-
-                if (!flash_access_not_ready && !prev_flash_data_completed && flash_data_completed) begin
-                    read_value <= flash_read;
-                    mem_read_data <= flash_read;
-                    flash_data_trigger <= 1'b0;
-                end
-
-            end else begin
-                flash_finalize_trigger <= 1'b1;
-                flash_opcode_addr_trigger <= 1'b0;
-                flash_data_trigger <= 1'b0;
-                flash_access_not_ready <= 1'b0;
-                mem_invalid_operation <= 1'b0;
-
-                read_value <= 8'hCC;
-                mem_read_data <= 8'hCC;
             end
 
-        end else begin
+            if (!prev_flash_data_completed && flash_data_completed) begin
+                read_value <= flash_read;
+                mem_read_data <= flash_read;
+                flash_data_trigger <= 1'b0;
+            end
+
+            if (!mem_operation_progress)
+                flash_sm <= FLASH_SM_FINAL;
+        end
+		
+        FLASH_SM_WRITE : begin
+            if (!prev_mem_write_data_flag && mem_write_data_flag) begin
+                if (flash_interface_busy) begin
+                    flash_access_not_ready <= 1'b1;
+                    flash_sm <= FLASH_SM_ERR;
+                end else begin
+                    flash_write <= mem_write_data;
+                    flash_data_trigger <= 1'b1;
+                end
+            end
+
+            if (!prev_flash_data_completed && flash_data_completed) begin
+                flash_data_trigger <= 1'b0;
+            end
+
+            if (!mem_operation_progress)
+                flash_sm <= FLASH_SM_FINAL;
+        end
+
+        FLASH_SM_ERR : begin
+            flash_sm <= FLASH_SM_FINAL;
+        end
+
+        FLASH_SM_FINAL : begin
+            flash_finalize_trigger <= 1'b1;
+            flash_sm <= FLASH_SM_IDLE;
             flash_opcode_addr_trigger <= 1'b0;
             flash_data_trigger <= 1'b0;
-            flash_finalize_trigger <= 1'b1;
             flash_access_not_ready <= 1'b0;
             mem_invalid_operation <= 1'b0;
         end
+
+        endcase
 
         prev_ctl_write_data_flag <= ctl_write_data_flag;
         prev_ctl_read_data_flag <= ctl_read_data_flag;
