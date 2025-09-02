@@ -49,8 +49,9 @@ module controller(  input clk,
     reg [23:0] flash_addr = 24'h0;
     reg [7:0]  flash_write = 8'hFF;
     wire [7:0] flash_read;
-    reg flash_wel = 1'b0;
+    reg flash_erase = 1'b0;
     reg flash_addr_flag = 1'b0;
+    reg flash_wel = 1'b0;
 
     /* Send command for transmit opcode & addr */
 	reg flash_opcode_addr_trigger = 1'b0;
@@ -66,7 +67,15 @@ module controller(  input clk,
     wire flash_interface_busy;
     reg flash_busy = 1'b0;
 
-    localparam FLASH_SM_IDLE = 4'd0, FLASH_SM_READ = 4'd1, FLASH_SM_WRITE = 4'd2, FLASH_SM_WREN = 4'd3, FLASH_SM_WREN_FINISH = 4'd4, FLASH_SM_ERR = 4'd14, FLASH_SM_FINAL = 4'd15;
+    localparam FLASH_SM_IDLE = 4'd0,
+               FLASH_SM_READ = 4'd1,
+               FLASH_SM_WRITE = 4'd2,
+               FLASH_SM_WREN = 4'd3,
+               FLASH_SM_WREN_FINISH = 4'd4,
+               FLASH_SM_ERASE = 4'd5,
+               FLASH_SM_ERR = 4'd14,
+               FLASH_SM_FINAL = 4'd15;
+
     reg [3:0] flash_sm;
 
     /* Common control */
@@ -210,7 +219,9 @@ module controller(  input clk,
             if (ctl_addr == 8'h0) begin
                 map_to_flash <= ctl_write_data[2];
             end else if (ctl_addr == 8'h1) begin
-                flash_wel <= ctl_write_data[7];
+                if (ctl_write_data[7]) begin
+                    flash_erase <= 1'b1;
+                end
             end
         end
 
@@ -219,7 +230,7 @@ module controller(  input clk,
         FLASH_SM_IDLE : begin
             flash_finalize_trigger <= 1'b0;
             if (map_to_flash) begin
-                if (!prev_mem_addr_valid && mem_addr_valid) begin
+                if (mem_addr_valid) begin
                     if (mem_read_data_prepare) begin
                         flash_addr <= mem_addr;
                         flash_opcode_addr_trigger <= 1'b1;
@@ -227,16 +238,34 @@ module controller(  input clk,
                         flash_opcode <= 8'h03;
                         flash_addr_flag <= 1'b1;
                         flash_sm <= FLASH_SM_READ;
+
+                    end else if (mem_write_data_prepare) begin
+						 if (flash_wel) begin
+                            flash_addr <= mem_addr;
+                            flash_opcode_addr_trigger <= 1'b1;
+                            flash_data_trigger <= 1'b0;
+                            flash_opcode <= 8'h02;
+                            flash_addr_flag <= 1'b1;
+                            flash_sm <= FLASH_SM_WRITE;
+                        end
                     end else begin
                         mem_invalid_operation <= 1'b1;
                         flash_sm <= FLASH_SM_ERR;
                     end
                 end
-                if (!prev_mem_write_data_prepare && mem_write_data_prepare) begin
+
+                if (!flash_wel && (mem_write_data_prepare || flash_erase)) begin
                     flash_addr_flag <= 1'b0;
                     flash_opcode <= 8'h06;
                     flash_opcode_addr_trigger <= 1'b1;
                     flash_sm <= FLASH_SM_WREN;
+                end
+
+                if (flash_wel && flash_erase) begin
+                    flash_addr_flag <= 1'b0;
+                    flash_opcode <= 8'hC7;
+                    flash_opcode_addr_trigger <= 1'b1;
+                    flash_sm <= FLASH_SM_ERASE;
                 end
             end
         end
@@ -261,28 +290,6 @@ module controller(  input clk,
                 flash_sm <= FLASH_SM_FINAL;
         end
 
-        FLASH_SM_WREN : begin
-            if (!prev_flash_opcode_addr_completed && flash_opcode_addr_completed) begin
-                flash_finalize_trigger <= 1'b1;
-                flash_opcode_addr_trigger <= 1'b0;
-                flash_sm <= FLASH_SM_WREN_FINISH;
-            end
-        end
-
-        FLASH_SM_WREN_FINISH : begin
-            if (!flash_interface_busy && mem_addr_valid) begin
-                flash_finalize_trigger <= 1'b0;
-                if (mem_write_data_prepare) begin
-                    flash_addr <= mem_addr;
-                    flash_opcode_addr_trigger <= 1'b1;
-                    flash_data_trigger <= 1'b0;
-                    flash_opcode <= 8'h02;
-                    flash_addr_flag <= 1'b1;
-                    flash_sm <= FLASH_SM_WRITE;
-                end
-            end
-        end
-
         FLASH_SM_WRITE : begin
             if (!prev_mem_write_data_flag && mem_write_data_flag) begin
                 if (flash_interface_busy) begin
@@ -298,9 +305,27 @@ module controller(  input clk,
                 flash_data_trigger <= 1'b0;
             end
 
-            if (!mem_operation_progress)
+            if (!mem_operation_progress) begin
                 flash_sm <= FLASH_SM_FINAL;
+                flash_wel <= 1'b0;
+            end
         end
+
+        FLASH_SM_WREN : begin
+            if (!prev_flash_opcode_addr_completed && flash_opcode_addr_completed) begin
+                flash_sm <= FLASH_SM_FINAL;
+                flash_wel <= 1'b1;
+            end
+        end
+
+        FLASH_SM_ERASE : begin
+            if (!prev_flash_opcode_addr_completed && flash_opcode_addr_completed) begin
+                flash_sm <= FLASH_SM_FINAL;
+                flash_wel <= 1'b0;
+                flash_erase <= 1'b0;
+            end
+        end
+        
 
         FLASH_SM_ERR : begin
             flash_sm <= FLASH_SM_FINAL;
