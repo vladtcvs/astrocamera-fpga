@@ -26,7 +26,7 @@ module spi_memory_master(main_clock,
                          finalize_trigger,      // finish
 
                          busy,
-						  state_out);
+                         state_out);
 
     parameter ADDR_BYTES = 3;
     parameter SCALER_BITS = 10;

@@ -72,11 +72,11 @@ module spi_memory_slave (   main_clock,
     reg [7:0]  data = 0;
     reg [7:0]  counter = 0;
 
-	localparam WRITE_CMD=4'h0, WRITE_ADDR=4'h1, WRITE_DATA=4'h2, READ_DATA=4'h3, PRE_READ_DUMMY=4'h4, READ_DUMMY=4'h5, IDLE=4'hf;
-	reg [3:0] state = WRITE_CMD;
+    localparam WRITE_CMD=4'h0, WRITE_ADDR=4'h1, WRITE_DATA=4'h2, READ_DATA=4'h3, PRE_READ_DUMMY=4'h4, READ_DUMMY=4'h5, IDLE=4'hf;
+    reg [3:0] state = WRITE_CMD;
 
-	assign addr = address;	
-	assign write_data = data;
+    assign addr = address;	
+    assign write_data = data;
 
     assign so = (cs == 0) ? ((state == READ_DATA) ? data[7] : 1'b1) : 1'bz;
     assign operation_in_progress = !cs;

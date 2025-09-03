@@ -4,10 +4,9 @@ module controller(  input clk,
                     input  wire ctl_spi_si,
                     output wire ctl_spi_so,
 
-                    input  wire mem_spi_sck,
-                    input  wire mem_spi_cs,
-                    input  wire mem_spi_si,
-                    output wire mem_spi_so,
+                    input  wire mem_qpi_sck,
+                    input  wire mem_qpi_cs,
+                    inout  wire [3:0] mem_qpi_io,
 
                     output wire flash_sck,
                     output wire flash_cs,
@@ -31,7 +30,6 @@ module controller(  input clk,
     wire ctl_read_data_prepare;
     wire ctl_addr_valid;
 
-
     /* Memory interface wires */
     wire [23:0] mem_addr;
     reg [7:0] mem_read_data = 8'h12;
@@ -43,6 +41,9 @@ module controller(  input clk,
     wire mem_read_data_prepare;
     wire mem_addr_valid;
     reg mem_invalid_operation = 1'b0;
+
+    assign mem_qpi_io[2] = 1'bz;
+    assign mem_qpi_io[3] = 1'bz;
 
     /* Flash access wires */
     reg [7:0]  flash_opcode = 8'h00;
@@ -169,10 +170,10 @@ module controller(  input clk,
 
     /* Memory SPI interface */
     spi_memory_slave#(3, 8) memory_slave(.main_clock(clk),
-                                       .sck(mem_spi_sck),
-                                       .cs(mem_spi_cs),
-                                       .si(mem_spi_si),
-                                       .so(mem_spi_so),
+                                       .sck(mem_qpi_sck),
+                                       .cs(mem_qpi_cs),
+                                       .si(mem_qpi_io[0]),
+                                       .so(mem_qpi_io[1]),
                                        .write_data_prepare(mem_write_data_prepare),
                                        .read_data_prepare(mem_read_data_prepare),
                                        .addr(mem_addr),
@@ -240,7 +241,7 @@ module controller(  input clk,
                         flash_sm <= FLASH_SM_READ;
 
                     end else if (mem_write_data_prepare) begin
-						 if (flash_wel) begin
+                        if (flash_wel) begin
                             flash_addr <= mem_addr;
                             flash_opcode_addr_trigger <= 1'b1;
                             flash_data_trigger <= 1'b0;
@@ -356,7 +357,6 @@ module controller(  input clk,
 
         prev_ctl_op <= ctl_operation_progress;
         prev_mem_addr_valid <= mem_addr_valid;
-		
 
     end
 

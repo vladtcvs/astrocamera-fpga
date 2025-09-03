@@ -7,12 +7,60 @@
 		<Device>
 			<SelectedProg value="TRUE"/>
 			<Pos>1</Pos>
+			<Vendor>NA</Vendor>
+			<Family>Generic JTAG Device</Family>
+			<Name>JTAG-NOP</Name>
+			<IDCode>0x06421041</IDCode>
+			<Package>All</Package>
+			<PON>JTAG-NOP</PON>
+			<Bypass>
+				<InstrLen>5</InstrLen>
+				<InstrVal>11111</InstrVal>
+				<BScanLen>1</BScanLen>
+				<BScanVal>0</BScanVal>
+			</Bypass>
+			<Operation>Bypass</Operation>
+			<Option>
+				<SVFVendor>JTAG STANDARD</SVFVendor>
+				<IOState>HighZ</IOState>
+				<OverideUES value="TRUE"/>
+				<TCKFrequency>1.000000 MHz</TCKFrequency>
+				<SVFProcessor>ispVM</SVFProcessor>
+			</Option>
+		</Device>
+		<Device>
+			<SelectedProg value="TRUE"/>
+			<Pos>2</Pos>
+			<Vendor>NA</Vendor>
+			<Family>Generic JTAG Device</Family>
+			<Name>JTAG-NOP</Name>
+			<IDCode>0x4ba00477</IDCode>
+			<Package>All</Package>
+			<PON>JTAG-NOP</PON>
+			<Bypass>
+				<InstrLen>4</InstrLen>
+				<InstrVal>1111</InstrVal>
+				<BScanLen>1</BScanLen>
+				<BScanVal>0</BScanVal>
+			</Bypass>
+			<Operation>Bypass</Operation>
+			<Option>
+				<SVFVendor>JTAG STANDARD</SVFVendor>
+				<IOState>HighZ</IOState>
+				<OverideUES value="TRUE"/>
+				<TCKFrequency>1.000000 MHz</TCKFrequency>
+				<SVFProcessor>ispVM</SVFProcessor>
+			</Option>
+		</Device>
+		<Device>
+			<SelectedProg value="TRUE"/>
+			<Pos>3</Pos>
 			<Vendor>Lattice</Vendor>
 			<Family>LatticeXP2</Family>
-			<Name>LFXP2-5E</Name>
-			<IDCode>0x01299043</IDCode>
+			<Name>LFXP2-8E</Name>
+			<IDCode>0x0129a043</IDCode>
 			<Package>All</Package>
-			<PON>LFXP2-5E</PON>
+			<PON>LFXP2-8E</PON>
 			<Bypass>
 				<InstrLen>8</InstrLen>
 				<InstrVal>11111111</InstrVal>
@@ -20,17 +68,17 @@
 				<BScanVal>0</BScanVal>
 			</Bypass>
 			<File>/home/vlad/Develop/camera/camera-control-firmware/impl/pinwheel_fpga_impl.jed</File>
-			<MaskFile>/home/vlad/Aux/FPGA/lattice/data/vmdata/database/xpga/xp2/lfxp2-5.msk</MaskFile>
-			<FileTime>09/02/25 02:49:01</FileTime>
-			<JedecChecksum>0xD0D9</JedecChecksum>
+			<FileTime>09/03/25 02:39:36</FileTime>
+			<JedecChecksum>0x6E36</JedecChecksum>
 			<Operation>SRAM Program,Verify</Operation>
 			<Option>
 				<SVFVendor>JTAG STANDARD</SVFVendor>
 				<IOState>Leave Alone</IOState>
-				<PreloadLength>394</PreloadLength>
-				<IOVectorData>0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF</IOVectorData>
+				<PreloadLength>522</PreloadLength>
+				<IOVectorData>0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF</IOVectorData>
 				<Reinitialize value="TRUE"/>
 				<TCKFrequency>1.000000 MHz</TCKFrequency>
+				<SVFProcessor>SVF Processor</SVFProcessor>
 				<Usercode>0xFFFFFFFF</Usercode>
 				<AccessMode>SRAM</AccessMode>
 			</Option>
@@ -43,11 +91,11 @@
 		<StartTAP>TLR</StartTAP>
 		<EndTAP>TLR</EndTAP>
 		<VerifyUsercode value="FALSE"/>
-		<TCKDelay>1</TCKDelay>
+		<TCKDelay>30</TCKDelay>
 	</ProjectOptions>
 	<CableOptions>
 		<CableName>USB2</CableName>
-		<PortAdd>FTUSB-0</PortAdd>
-		<USBID>LATTICE FTUSB INTERFACE CABLE A Location 0000 Serial LATTICE FTUSB INTERFACE CABLE A</USBID>
+		<PortAdd>FTUSB-1</PortAdd>
+		<USBID>LATTICE FTUSB INTERFACE CABLE B Location 0001 Serial LATTICE FTUSB INTERFACE CABLE B</USBID>
 	</CableOptions>
 </ispXCF>

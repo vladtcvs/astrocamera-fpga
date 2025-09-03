@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<BaliProject version="3.2" title="pinwheel_fpga" device="LFXP2-5E-5TN144I" default_implementation="impl">
+<BaliProject version="3.2" title="pinwheel_fpga" device="LFXP2-8E-5TN144I" default_implementation="impl">
     <Options/>
     <Implementation title="impl" dir="impl" description="impl" synthesis="lse" default_strategy="Strategy1">
-        <Options def_top="qpi_memory_slave" top="top"/>
+        <Options def_top="pll" top="top"/>
         <Source name="src/top.v" type="Verilog" type_short="Verilog">
             <Options top_module="top"/>
         </Source>
@@ -12,7 +12,7 @@
         <Source name="src/controller.v" type="Verilog" type_short="Verilog">
             <Options/>
         </Source>
-        <Source name="src/qpi_memory_slave.v" type="Verilog" type_short="Verilog">
+        <Source name="src/qpi_memory_slave.v" type="Verilog" type_short="Verilog" excluded="TRUE">
             <Options/>
         </Source>
         <Source name="src/spi_memory_slave.v" type="Verilog" type_short="Verilog">
