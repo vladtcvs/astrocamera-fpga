@@ -115,7 +115,20 @@ module controller(  input clk,
     wire memory_finalize_completed     = map_to_flash ? flash_finalize_completed : sram_finalize_completed;
 	///////////////////// SRAM + FLASH /////////////////////
 
-    
+    //////////////////// CCD CONFIG and WIRES //////////////
+    reg [15:0] ccd_width;
+    reg [15:0] ccd_height;
+    reg [3:0] num_vertical_phases;
+    reg [2:0] num_horizontal_phases;
+    reg start_exposure;
+    reg complete_exposure;
+    reg start_read;
+
+    wire [15:0] vertical_phases;
+    wire [7:0] horizontal_phases;
+    wire read_completed;
+    wire read_sample;
+    //////////////////// END CCD CONFIG and WIRES //////////
 
     /* Common control */
     wire [7:0] memory_status = {1'h1,
@@ -268,6 +281,13 @@ module controller(  input clk,
                                         .busy(flash_interface_busy),
                                         .state_out(flash_state));
 
+    ccd_controller ccd(.clk(clk),
+                       .width(ccd_width), .height(ccd_height),
+                       .num_vertical_phases(num_vertical_phases), .num_horizontal_phases(num_horizontal_phases),
+                       .start_exposure(start_exposure), .complete_exposure(complete_exposure), .start_read(start_read),
+                       .vertical_phases(vertical_phases), .horizontal_phases(horizontal_phases),
+                       .read_completed(read_completed), .read_sample(read_sample));
+
     integer counter = 0;
 
     
@@ -295,6 +315,12 @@ module controller(  input clk,
                            (ctl_addr == 8'h03) ? memory_operations_cnt :
                            (ctl_addr == 8'h04) ? sm_mem :
                            (ctl_addr == 8'h05) ? last_read :
+                           (ctl_addr == 8'h10) ? ccd_width[7:0] :
+                           (ctl_addr == 8'h11) ? ccd_width[15:8] :
+                           (ctl_addr == 8'h12) ? ccd_height[7:0] :
+                           (ctl_addr == 8'h13) ? ccd_height[15:8] :
+                           (ctl_addr == 8'h14) ? {4'h0, num_vertical_phases} :
+                           (ctl_addr == 8'h15) ? {5'h0, num_horizontal_phases} :
                             8'hAB;
 
     reg write_triggered = 1'b0;
@@ -338,11 +364,48 @@ module controller(  input clk,
 
         SM_CTL_EXPECT_WRITE: begin
             if (ctl_write_data_valid) begin
-                if (ctl_addr == 8'h00) begin
+                case (ctl_addr)
+                8'h00: begin
                     map_to_flash_cache <= ctl_write_data[5];
-                end else if (ctl_addr == 8'h01) begin
+                end
+                8'h01: begin
                     memory_finalize_trigger <= 1'b1;
                 end
+                8'h10: begin
+                    ccd_width[7:0] <= ctl_write_data;
+                end
+                8'h11: begin
+                    ccd_width[15:8] <= ctl_write_data;
+                end
+                8'h12: begin
+                    ccd_height[7:0] <= ctl_write_data;
+                end
+                8'h13: begin
+                    ccd_height[15:8] <= ctl_write_data;
+                end
+                8'h14: begin
+                    num_vertical_phases <= ctl_write_data[3:0];
+                end
+                8'h15: begin
+                    num_horizontal_phases <= ctl_write_data[2:0];
+                end
+                8'h20: begin
+                    start_read <= 1'b0;
+                    start_exposure <= 1'b1;
+                    complete_exposure <= 1'b0;
+                end
+                8'h21: begin
+                    start_read <= 1'b0;
+                    start_exposure <= 1'b0;
+                    complete_exposure <= 1'b1;
+                end
+                8'h22: begin
+                    start_read <= 1'b1;
+                    start_exposure <= 1'b0;
+                    complete_exposure <= 1'b0;
+                end
+
+                endcase
                 sm_ctl <= SM_CTL_WAIT_FINISH;
             end
         end
