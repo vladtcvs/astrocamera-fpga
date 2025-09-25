@@ -87,7 +87,7 @@ module spi_memory_slave (   main_clock,
 
     assign write_data = data;
 
-    assign so = (cs == 0) ? ((state == READ_DATA) ? data[7] : 1'b1) : 1'bz;
+    assign so = (cs == 0) ? ((state == READ_DATA || state == COMPLETED_ITEM) ? data[7] : 1'b1) : 1'bz;
     assign operation_in_progress = !cs;
 
 

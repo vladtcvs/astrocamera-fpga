@@ -35,12 +35,12 @@ wire ctl_cs;
 wire ctl_sck;
 wire mem_cs;
 wire mem_sck;
-slow_edge_refine ctl_sck_refine(.clk(clk), .in(ctl_spi_sck), .out(ctl_sck));
-slow_edge_refine ctl_cs_refine(.clk(clk), .in(ctl_spi_cs), .out(ctl_cs));
-slow_edge_refine mem_sck_refine(.clk(clk), .in(mem_qpi_sck), .out(mem_sck));
-slow_edge_refine mem_cs_refine(.clk(clk), .in(mem_qpi_cs), .out(mem_cs));
+slow_edge_refine#(4) ctl_sck_refine(.clk(clk), .in(ctl_spi_sck), .out(ctl_sck));
+slow_edge_refine#(4) ctl_cs_refine(.clk(clk), .in(ctl_spi_cs), .out(ctl_cs));
+slow_edge_refine#(3) mem_sck_refine(.clk(clk), .in(mem_qpi_sck), .out(mem_sck));
+slow_edge_refine#(3) mem_cs_refine(.clk(clk), .in(mem_qpi_cs), .out(mem_cs));
 
-controller#(5) ctl( .clk(clk),
+controller#(2) ctl( .clk(clk),
                 .ctl_spi_sck(ctl_sck),
                 .ctl_spi_cs(ctl_cs),
                 .ctl_spi_si(ctl_spi_si),
