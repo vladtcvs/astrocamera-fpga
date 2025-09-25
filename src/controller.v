@@ -61,7 +61,7 @@ module controller(  input clk,
     reg mem_insert_dummy_cycles = 1'b0;
     wire mem_operation_progress;
 
-    reg mem_invalid_operation = 1'b0;
+    reg mem_invalid_operation = 1'b0;
     ///////////////////// SRAM + FLASH /////////////////////
 	reg [7:0]  memory_opcode = 8'h00;
     reg [23:0] memory_addr = 24'h0;
@@ -133,11 +133,7 @@ module controller(  input clk,
                                 flash_finalize_completed
 							   };
 
-    assign ctl_read_data = (ctl_addr == 8'h00) ? memory_status : 
-                           (ctl_addr == 8'h01) ? sram_status :
-                           (ctl_addr == 8'h02) ? flash_status :
-                            8'hAB;
-
+    
 
     /* Control SPI interface */
     spi_memory_slave#(1, 8) ctl_slave(.main_clock(clk),
@@ -231,160 +227,231 @@ module controller(  input clk,
                                         .busy(sram_interface_busy),
                                         .state_out(sram_state));
 
-    reg prev_ctl_cmd_valid = 1'b0;
-    reg prev_ctl_addr_valid = 1'b0;
-    reg prev_ctl_write_data_valid = 1'b0;
-    reg prev_ctl_read_data_request = 1'b0;
-    reg prev_ctl_read_data_captured = 1'b0;
-
-    reg prev_mem_cmd_valid = 1'b0;
-    reg prev_mem_addr_valid = 1'b0;
-    reg prev_mem_write_data_valid = 1'b0;
-    reg prev_mem_read_data_request = 1'b0;
-    reg prev_mem_read_data_captured = 1'b0;
-    reg prev_mem_operation_progress = 1'b0;
-
-    reg prev_sram_opcode_addr_completed = 1'b0;
-    reg prev_sram_data_trigger_captured = 1'b0;
-    reg prev_sram_data_completed = 1'b0;
-    reg prev_sram_data_ready = 1'b0;
-    reg prev_sram_finalize_completed = 1'b0;
-
-    reg prev_ctl_op = 1'b0;
 
     integer counter = 0;
 
+    
+    localparam SM_CTL_IDLE = 0,
+               SM_CTL_EXPECT_ADDR = 1, SM_CTL_EXPECT_WRITE = 2, SM_CTL_EXPECT_READ = 3,
+               SM_CTL_WAIT_FINISH = 4, SM_CTL_ERR = 5;
+
+    localparam SM_MEM_IDLE = 0,
+	           SM_MEM_EXPECT_ADDR = 1, SM_MEM_EXPECT_ADDR_COMPLETED = 2,
+               SM_MEM_EXPECT_READ = 3, SM_MEM_EXPECT_READ_COMPLETED = 4,
+               SM_MEM_EXPECT_WRITE = 5, SM_MEM_EXPECT_WRITE_COMPLETED = 6,
+               SM_MEM_EXPECT_FINISH = 7,
+               SM_MEM_WAIT_FINISH = 8, SM_MEM_ERR = 9;
+
+    reg [2:0] sm_ctl = SM_CTL_IDLE;
+    reg [5:0] sm_mem = SM_MEM_IDLE;
+
     assign status = {
-	    7'd0, sram_interface_busy
+	    7'd0, sm_mem == SM_MEM_IDLE//sram_interface_busy
 	};
 
-    reg _sram_read_completed = 1'b0;
-    reg _mem_read_request = 1'b0;
+    assign ctl_read_data = (ctl_addr == 8'h00) ? memory_status : 
+                           (ctl_addr == 8'h01) ? sram_status :
+                           (ctl_addr == 8'h02) ? flash_status :
+                           (ctl_addr == 8'h03) ? sm_mem :
+                            8'hAB;
+
+    reg write_triggered = 1'b0;
 
     always @ (posedge clk) begin
 
-        /* Read/Write control registers */
-        if (!prev_ctl_cmd_valid && ctl_cmd_valid) begin
-            ctl_expect_write <= 1'b0;
-            ctl_expect_read <= 1'b0;
-            ctl_expect_addr <= 1'b1;
-        end
-        if (!prev_ctl_addr_valid && ctl_addr_valid) begin
-            ctl_expect_addr <= 1'b0;
-            case (ctl_cmd)
-            8'h02: begin // WRITE to control register
-                ctl_expect_write <= 1'b1;
-                ctl_insert_dummy_cycles <= 1'b0;
-            end
-            8'h03: begin // READ from control register
-                ctl_expect_read <= 1'b1;
-                ctl_insert_dummy_cycles <= 1'b1;
-            end
-            endcase
-        end
-        if (!prev_ctl_write_data_valid && ctl_write_data_valid) begin
-            if (ctl_addr == 8'h00) begin
-                map_to_flash <= ctl_write_data[5];
-            end else if (ctl_addr == 8'h01) begin
-                memory_finalize_trigger <= 1'b1;
+        case (sm_ctl)
+        SM_CTL_IDLE: begin
+            if (ctl_cmd_valid) begin
+                ctl_expect_write <= 1'b0;
+                ctl_expect_read <= 1'b0;
+                ctl_expect_addr <= 1'b1;
+                sm_ctl <= SM_CTL_EXPECT_ADDR;
             end
         end
 
-        /* Read/Write memory registers */
-		if (mem_operation_progress && !prev_mem_operation_progress) begin
-            memory_data_trigger <= 1'b0;
-            memory_opcode_addr_trigger <= 1'b0;
-            memory_finalize_trigger <= 1'b0;
-        end
-        if (!prev_mem_cmd_valid && mem_cmd_valid) begin
-            mem_expect_addr <= 1'b1;
-            mem_expect_read <= 1'b0;
-            mem_expect_write <= 1'b0;
-        end
-        if (!prev_mem_addr_valid && mem_addr_valid) begin
-            mem_expect_addr <= 1'b0;
-            case (mem_cmd)
-            8'h02: begin // WRITE to memory
-                mem_expect_write <= 1'b1;
-                mem_insert_dummy_cycles <= 1'b0;
-
-                memory_addr <= mem_addr;
-                memory_addr_flag <= 1'b1;
-                memory_opcode_addr_trigger <= 1'b1;
-                memory_opcode <= 8'h02;
+        SM_CTL_EXPECT_ADDR: begin
+            if (ctl_addr_valid) begin
+                ctl_expect_addr <= 1'b0;
+                case (ctl_cmd)
+                8'h02: begin // WRITE to control register
+                    ctl_expect_write <= 1'b1;
+                    ctl_insert_dummy_cycles <= 1'b0;
+                    sm_ctl <= SM_CTL_EXPECT_WRITE;
+                end
+                8'h03: begin // READ from control register
+                    ctl_expect_read <= 1'b1;
+                    ctl_insert_dummy_cycles <= 1'b1;
+                    sm_ctl <= SM_CTL_EXPECT_READ;
+                end
+                default: begin
+                    sm_ctl <= SM_CTL_ERR;
+                end
+                endcase
             end
-            8'h03: begin // READ from memory
-                mem_expect_read <= 1'b1;
-                mem_insert_dummy_cycles <= 1'b0;
-
-                memory_addr <= mem_addr;
-                memory_addr_flag <= 1'b1;
-                memory_opcode_addr_trigger <= 1'b1;
-                memory_opcode <= 8'h03;
-            end
-            endcase
         end
 
-
-        if (!prev_mem_write_data_valid && mem_write_data_valid) begin
-            memory_write <= mem_write_data;
-            memory_data_trigger <= 1'b1;
+        SM_CTL_EXPECT_READ: begin
+            sm_ctl <= SM_CTL_WAIT_FINISH;
         end
 
-            if (sram_opcode_addr_completed && !prev_sram_opcode_addr_completed) begin
-                _sram_read_completed <= 1'b1;
-                memory_opcode_addr_trigger <= 1'b0;
+        SM_CTL_EXPECT_WRITE: begin
+            if (ctl_write_data_valid) begin
+                if (ctl_addr == 8'h00) begin
+                    map_to_flash <= ctl_write_data[5];
+                end else if (ctl_addr == 8'h01) begin
+                    memory_finalize_trigger <= 1'b1;
+                end
+                sm_ctl <= SM_CTL_WAIT_FINISH;
             end
+        end
 
-            if (sram_data_trigger_captured && !prev_sram_data_trigger_captured) begin
-			     memory_data_trigger <= 1'b0;
+        SM_CTL_WAIT_FINISH: begin
+            if (!ctl_operation_progress) begin
+                sm_ctl <= SM_CTL_IDLE;
+                ctl_expect_write <= 1'b0;
+                ctl_expect_read <= 1'b0;
+                ctl_expect_addr <= 1'b0;
             end
+        end
 
-            if (sram_data_completed && !prev_sram_data_completed) begin
-                mem_read_data <= sram_read;
-                _sram_read_completed <= 1'b1;
-            end
+        SM_CTL_ERR: begin
+            sm_ctl <= SM_CTL_WAIT_FINISH;
+        end
 
-            if (mem_read_data_request && !prev_mem_read_data_request) begin
-				_mem_read_request <= 1'b1;
-            end
+        default: begin
+            sm_ctl <= SM_CTL_ERR;
+        end
+        endcase
 
-            if (mem_cmd == 8'h03 && _sram_read_completed && _mem_read_request) begin
-                _sram_read_completed <= 1'b0;
-                _mem_read_request <= 1'b0;
-                memory_data_trigger <= 1'b1;
-            end
-
-            if (sram_finalize_completed && !prev_sram_finalize_completed) begin
+        case (sm_mem)
+ 
+        SM_MEM_IDLE: begin
+            if (mem_cmd_valid) begin
+                mem_expect_write <= 1'b0;
+                mem_expect_read <= 1'b0;
+                mem_expect_addr <= 1'b1;
                 memory_finalize_trigger <= 1'b0;
+                memory_data_trigger <= 1'b0;
+                memory_opcode_addr_trigger <= 1'b0;
+                sm_mem <= SM_MEM_EXPECT_ADDR;
             end
-
-        if (prev_mem_operation_progress && !mem_operation_progress) begin
-            memory_finalize_trigger <= 1'b1;
         end
 
-        prev_ctl_cmd_valid <= ctl_cmd_valid;
-        prev_ctl_addr_valid <= ctl_addr_valid;
-        prev_ctl_write_data_valid <= ctl_write_data_valid;
-        prev_ctl_read_data_request <= ctl_read_data_request;
-        prev_ctl_read_data_captured <= ctl_read_data_captured;
+        SM_MEM_WAIT_FINISH: begin
+            if (!mem_operation_progress) begin
+                sm_mem <= SM_MEM_IDLE;
+                mem_expect_write <= 1'b0;
+                mem_expect_read <= 1'b0;
+                mem_expect_addr <= 1'b0;
+            end
+        end
 
-        prev_mem_cmd_valid <= mem_cmd_valid;
-        prev_mem_addr_valid <= mem_addr_valid;
-        prev_mem_write_data_valid <= mem_write_data_valid;
-        prev_mem_read_data_request <= mem_read_data_request;
-        prev_mem_read_data_captured <= mem_read_data_captured;
-        prev_mem_operation_progress <= mem_operation_progress;
+        SM_MEM_EXPECT_ADDR: begin
+            if (!mem_operation_progress) begin
+                memory_finalize_trigger <= 1'b1;
+                sm_mem <= SM_MEM_WAIT_FINISH;
+            end else if (mem_addr_valid) begin
+                mem_expect_addr <= 1'b0;
+                case (mem_cmd)
+                8'h02: begin // WRITE to memory
+                    mem_expect_write <= 1'b1;
+                    mem_insert_dummy_cycles <= 1'b0;
 
-        prev_sram_opcode_addr_completed <= sram_opcode_addr_completed;
-        prev_sram_data_trigger_captured <= sram_data_trigger_captured;
-        prev_sram_data_completed <= sram_data_completed;
-        prev_sram_data_ready <= sram_data_ready;
-        prev_sram_finalize_completed <= sram_finalize_completed;
+                    memory_addr <= mem_addr;
+                    memory_addr_flag <= 1'b1;
+                    memory_opcode_addr_trigger <= 1'b1;
+                    memory_opcode <= 8'h02;
 
-        prev_ctl_op <= ctl_operation_progress;
-        
+                    sm_mem <= SM_MEM_EXPECT_ADDR_COMPLETED;
+                end
+                8'h03: begin // READ from memory
+                    mem_expect_read <= 1'b1;
+                    mem_insert_dummy_cycles <= 1'b1;
 
+                    memory_addr <= mem_addr;
+                    memory_addr_flag <= 1'b1;
+                    memory_opcode_addr_trigger <= 1'b1;
+                    memory_opcode <= 8'h03;
+
+                    sm_mem <= SM_MEM_EXPECT_ADDR_COMPLETED;
+                end
+                default: begin
+                    sm_mem <= SM_MEM_ERR;
+                end
+                endcase
+            end
+        end
+
+        SM_MEM_EXPECT_ADDR_COMPLETED: begin
+            if (sram_opcode_addr_completed) begin
+                memory_data_trigger <= 1'b0;
+                case (memory_opcode)
+                8'h02: begin // WRITE to memory
+                    sm_mem <= SM_MEM_EXPECT_WRITE;
+                end
+                8'h03: begin // READ memory
+                    sm_mem <= SM_MEM_EXPECT_READ;
+                end
+                endcase
+            end
+        end
+
+        SM_MEM_EXPECT_READ: begin
+            if (!mem_operation_progress) begin
+                memory_finalize_trigger <= 1'b1;
+                sm_mem <= SM_MEM_WAIT_FINISH;
+            end else if (mem_read_data_request) begin
+                memory_data_trigger <= 1'b1;
+                sm_mem <= SM_MEM_EXPECT_READ_COMPLETED;
+            end
+        end
+
+        SM_MEM_EXPECT_READ_COMPLETED: begin
+            if (!mem_operation_progress) begin
+                memory_finalize_trigger <= 1'b1;
+                sm_mem <= SM_MEM_WAIT_FINISH;
+            end else if (sram_data_completed && !mem_read_data_request) begin
+                mem_read_data <= sram_read;
+                memory_data_trigger <= 1'b0;
+                sm_mem <= SM_MEM_EXPECT_READ;
+            end
+        end
+
+        SM_MEM_EXPECT_WRITE: begin
+            if (!mem_operation_progress) begin
+                memory_finalize_trigger <= 1'b1;
+                sm_mem <= SM_MEM_WAIT_FINISH;
+            end else if (mem_write_data_valid) begin
+                write_triggered <= 1'b0;
+                memory_write <= mem_write_data;
+                memory_data_trigger <= 1'b1;
+                sm_mem <= SM_MEM_EXPECT_WRITE_COMPLETED;
+            end
+        end
+
+        SM_MEM_EXPECT_WRITE_COMPLETED : begin
+            if (!mem_write_data_valid) begin
+                write_triggered <= 1'b1;
+            end
+            if (write_triggered && sram_data_completed) begin
+                sm_mem <= SM_MEM_EXPECT_WRITE;
+                memory_data_trigger <= 1'b0;
+            end
+        end
+
+        SM_MEM_EXPECT_FINISH : begin
+            if (sram_finalize_completed) begin
+                sm_mem <= SM_MEM_WAIT_FINISH;
+            end
+        end
+
+        SM_MEM_ERR: begin
+            sm_mem <= SM_MEM_WAIT_FINISH;
+        end
+        default: begin
+            sm_mem <= SM_MEM_ERR;
+        end
+        endcase
     end
 
 endmodule
