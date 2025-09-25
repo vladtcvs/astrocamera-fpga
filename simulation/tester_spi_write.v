@@ -30,8 +30,13 @@ reg clk;
 wire [7:0] addr;
 wire [7:0] write_data;
 wire [7:0] read_data = 8'hAB;
-wire write_data_flag;
-wire read_data_flag;
+wire write_data_valid;
+wire read_data_request;
+
+reg expect_addr;
+reg expect_read;
+reg expect_write;
+reg insert_dummy;
 
 spi_memory_slave#(1) spislave(.main_clock(clk),
                               .sck(sck),
@@ -40,9 +45,14 @@ spi_memory_slave#(1) spislave(.main_clock(clk),
                               .so(miso),
                               .addr(addr),
                               .write_data(write_data),
-                              .write_data_flag(write_data_flag),
+                              .write_data_valid(write_data_valid),
                               .read_data(read_data),
-                              .read_data_flag(read_data_flag));
+                              .read_data_request(read_data_request),
+                              .expect_addr(expect_addr),
+                              .expect_read(expect_read),
+                              .expect_write(expect_write),
+                              .insert_dummy_cycles(insert_dummy)
+);
 
 integer i;
 
@@ -51,6 +61,10 @@ clk = 1'b0;
 sck = 1'b0;
 mosi = 1'b0;
 cs = 1'b1;
+expect_addr = 1'b0;
+expect_read = 1'b0;
+expect_write = 1'b0;
+insert_dummy = 1'b0;
 #10
 for (i = 0; i < 10; i=i+1) begin
     clk = ~clk;
@@ -75,9 +89,11 @@ end
 `MOSI(1)
 `MOSI(0)
 
+expect_addr <= 1'b1;
 // sending address = 8'hAB = 8'b10101011
 
 `MOSI(1)
+expect_addr <= 1'b0;
 `MOSI(0)
 `MOSI(1)
 `MOSI(0)
@@ -87,6 +103,7 @@ end
 `MOSI(1)
 `MOSI(1)
 
+expect_write <= 1'b1;
 // sending data = 8'hCD = 8'b11001101
 
 `MOSI(1)
@@ -109,6 +126,7 @@ end
 `MOSI(0)
 `MOSI(0)
 `MOSI(1)
+expect_write <= 1'b0;
 `MOSI(1)
 
 // finish SPI transaction

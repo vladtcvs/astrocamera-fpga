@@ -8,11 +8,15 @@ add wave  \
 	sim:/tester_spi_read/spislave/si \
 	sim:/tester_spi_read/spislave/so \
 	sim:/tester_spi_read/spislave/read_data \
-	sim:/tester_spi_read/spislave/read_data_flag \
-	sim:/tester_spi_read/spislave/command \
-	sim:/tester_spi_read/spislave/address \
+	sim:/tester_spi_read/spislave/read_data_request \
+	sim:/tester_spi_read/spislave/read_data_captured \
+	sim:/tester_spi_read/spislave/cmd \
+	sim:/tester_spi_read/spislave/addr \
+	sim:/tester_spi_read/addr_valid \
 	sim:/tester_spi_read/spislave/data \
 	sim:/tester_spi_read/spislave/state \
-    sim:/tester_spi_read/spislave/counter
+	sim:/tester_spi_read/spislave/counter \
+	sim:/tester_spi_read/insert_dummy \
+	sim:/tester_spi_read/expect_read
 
 run 10000ns

@@ -68,9 +68,10 @@
 				<BScanVal>0</BScanVal>
 			</Bypass>
 			<File>/home/vlad/Develop/camera/camera-control-firmware/impl/pinwheel_fpga_impl.jed</File>
-			<FileTime>09/03/25 02:39:36</FileTime>
-			<JedecChecksum>0x6E36</JedecChecksum>
-			<Operation>SRAM Program,Verify</Operation>
+			<MaskFile>/home/vlad/Aux/FPGA/lattice/diamond/data/vmdata/database/xpga/xp2/lfxp2-8.msk</MaskFile>
+			<FileTime>09/25/25 13:26:21</FileTime>
+			<JedecChecksum>0x2EDF</JedecChecksum>
+			<Operation>FLASH Erase,Program,Verify</Operation>
 			<Option>
 				<SVFVendor>JTAG STANDARD</SVFVendor>
 				<IOState>Leave Alone</IOState>
@@ -80,7 +81,7 @@
 				<TCKFrequency>1.000000 MHz</TCKFrequency>
 				<SVFProcessor>SVF Processor</SVFProcessor>
 				<Usercode>0xFFFFFFFF</Usercode>
-				<AccessMode>SRAM</AccessMode>
+				<AccessMode>FLASH</AccessMode>
 			</Option>
 		</Device>
 	</Chain>

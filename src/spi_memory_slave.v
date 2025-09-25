@@ -23,24 +23,30 @@
 
 module spi_memory_slave (   main_clock,
                             sck, cs, si, so,
-                            
-                            write_data_prepare,
-                            read_data_prepare,
 
-                            addr, 
+                            expect_addr,
+                            expect_write,
+                            expect_read,
+                            insert_dummy_cycles,
+
+                            cmd,
+                            cmd_valid,
+
+                            addr,
                             addr_valid,
+
                             write_data,
-                            write_data_flag,
+                            write_data_valid,
+
                             read_data,
-                            read_data_flag,
+                            read_data_request,
+                            read_data_captured,
+
                             operation_in_progress
 );
 
     parameter ADDR_BYTES = 3;
-    parameter READ_DUMMY_CYCLES = 8;
-
-    parameter READ_CMD_OPCODE = 8'h03;
-    parameter WRITE_CMD_OPCODE = 8'h02;
+    parameter DUMMY_CYCLES = 8;
 
     // main clock
     input  wire main_clock;
@@ -52,174 +58,198 @@ module spi_memory_slave (   main_clock,
     output  wire so;
 
     // Internal interface
+    output reg [7:0] cmd = 8'h00;
+    output reg cmd_valid = 1'b0;
 
-    output reg read_data_prepare;
-    output reg write_data_prepare;
-    output reg addr_valid;
-    output wire [ADDR_BYTES*8-1:0] addr;
-    
+    input wire expect_addr;
+    input wire expect_write;
+    input wire expect_read;
+    input wire insert_dummy_cycles;
+
+    output reg [ADDR_BYTES*8-1:0] addr;
+    output reg addr_valid = 1'b0;
+
     output wire [7:0] write_data;
-    output reg        write_data_flag = 0;
-
+    output reg        write_data_valid = 0;
+    
     input wire [7:0]  read_data;
-    output reg        read_data_flag = 0;
+    output reg        read_data_request = 0;
+    output reg        read_data_captured = 0;
 
     output wire operation_in_progress;
 
     // state
-    reg [7:0]  command = 0;
-    reg [ADDR_BYTES*8-1:0] address = 0;
     reg [7:0]  data = 0;
     reg [7:0]  counter = 0;
 
-    localparam WRITE_CMD=4'h0, WRITE_ADDR=4'h1, WRITE_DATA=4'h2, READ_DATA=4'h3, PRE_READ_DUMMY=4'h4, READ_DUMMY=4'h5, IDLE=4'hf;
+    localparam WRITE_CMD=4'h0, COMPLETED_ITEM=4'h1, WRITE_ADDR=4'h2, WRITE_DATA=4'h3, READ_DATA=4'h4, DUMMY=4'h5, ERROR=4'he, IDLE=4'hf;
     reg [3:0] state = WRITE_CMD;
 
-    assign addr = address;	
     assign write_data = data;
 
     assign so = (cs == 0) ? ((state == READ_DATA) ? data[7] : 1'b1) : 1'bz;
     assign operation_in_progress = !cs;
 
 
-    reg first_data_byte;
+    reg dummy_ready;
 
     reg prev_cs = 1'b1;
     reg prev_sck = 1'b0;
-    reg addr_completed = 1'b0;
 
     always @ (posedge main_clock) begin
         if (cs) begin
-            state <= WRITE_CMD;
-            first_data_byte <= 1'b0;
+            state <= IDLE;
             counter <= 0;
-            command <= 0;
+            cmd <= 0;
+            cmd_valid <= 0;
             data <= 0;
-            address <= 0;
+
+            addr <= 'h0;
             addr_valid <= 1'b0;
-            write_data_flag <= 1'b0;
-            read_data_flag <= 1'b0;
-            read_data_prepare <= 1'b0;
-            write_data_prepare <= 1'b0;
+            write_data_valid <= 1'b0;
+            read_data_request <= 1'b0;
+            read_data_captured <= 1'b0;
+
+            dummy_ready <= 1'b0;
             addr_valid <= 1'b0;
-            addr_completed <= 1'b0;
         end else if (!cs) begin
             if (prev_cs) begin
                 state <= WRITE_CMD;
-                first_data_byte <= 1'b1;
                 counter <= 0;
-                command <= 0;
+
+                cmd <= 0;
+                cmd_valid <= 0;
+
                 data <= 0;
-                address <= 0;
-                write_data_flag <= 1'b0;
-                read_data_flag <= 1'b0;
+                write_data_valid <= 0;
+                read_data_request <= 0;
+                read_data_captured <= 1'b0;
+
+                dummy_ready <= 1'b0;
+
+                addr <= 0;
+                addr_valid <= 0;
+
             end else if ((!sck) && prev_sck) begin
-                if (addr_completed) begin
-                    addr_valid <= 1'b1; 
-                    addr_completed <= 1'b0;
-                end
                 case (state)
+                    WRITE_CMD : begin
+                    end
+
+                    WRITE_ADDR : begin
+                    end
+
                     WRITE_DATA : begin
-                        if (counter == 8) begin
-                            write_data_flag <= 1'b1;
-                            counter <= 0;
-                            first_data_byte <= 1'b0;
-                        end
                     end
 
-                    PRE_READ_DUMMY : begin
-                        counter <= 0;
-                        if (READ_DUMMY_CYCLES != 0) begin
-                            state <= READ_DUMMY;
-                        end else begin
-                            state <= READ_DATA;
-                            data <= read_data;
-                        end
-                    end
-
-                    READ_DUMMY : begin
-                        if (counter == READ_DUMMY_CYCLES) begin
-                            data <= read_data;
-                            state <= READ_DATA;
-                            counter <= 0;
-                        end else if (counter == 1) begin
-                            read_data_flag <= 1'b1;
-                        end
+                    DUMMY : begin
+                        read_data_request <= 1'b0;
                     end
 
                     READ_DATA : begin
-                        if (counter == 1) begin
-                            read_data_flag <= 1'b1;
-                        end
+                        read_data_request <= 1'b0;
+                        data    <= {data[6:0], 1'b0};
+                    end
 
-                        if (counter == 5'd8) begin
-                            data <= read_data;
-                            counter <= 0;
-                        end else begin
-                            data    <= {data[6:0], 1'b0};
+                    COMPLETED_ITEM : begin
+                        if (expect_read) begin
+                            if (insert_dummy_cycles && !dummy_ready) begin
+                                counter <= 'd0;
+                                state <= DUMMY;
+                                read_data_request <= 1'b0;
+                            end else begin
+                                counter <= 'd0;
+                                state <= READ_DATA;
+                                data <= read_data;
+                                read_data_request <= 1'b0;
+                                read_data_captured <= 1'b1;
+                            end
                         end
                     end
                 endcase
             end else if (sck && (!prev_sck)) begin
+                read_data_captured <= 1'b0;
                 case (state)
                     WRITE_CMD : begin
-                        case (counter)
-                            7 : begin
-                                case ({command[6:0], si})
-                                    WRITE_CMD_OPCODE : begin	// Write
-                                        state <= WRITE_ADDR;
-                                        write_data_prepare <= 1'b1;
-                                    end
-                                    READ_CMD_OPCODE : begin	// Read
-                                        state <= WRITE_ADDR;
-                                        read_data_prepare <= 1'b1;
-                                    end
-                                endcase
-                                counter <= 0;
-                            end
-                            default: begin
-                                counter <= counter + 5'd1;
-                            end
-                        endcase
-                        command <= {command[6:0], si};
+                        if (counter == 'd7) begin
+                            cmd_valid <= 1'b1;
+                            counter <= 0;
+                            state <= COMPLETED_ITEM;
+                        end else begin
+                            counter <= counter + 1'd1;
+                        end
+                        cmd <= {cmd[6:0], si};
                     end
 
                     WRITE_ADDR : begin
-                        case (counter)
-                            ADDR_BYTES * 8 - 1 : begin
-                                addr_completed <= 1'b1;
-                                case (command)
-                                    WRITE_CMD_OPCODE : begin	// Write
-                                        state <= WRITE_DATA;
-                                    end
-                                    READ_CMD_OPCODE : begin	// Read
-                                        state <= PRE_READ_DUMMY;
-                                    end
-                                endcase
-                                counter <= 0;
-                            end
-                            default : begin
-                                counter <= counter + 5'd1;
-                            end
-                        endcase
-                        address <= {address[(ADDR_BYTES*8-2):0], si};
+                        if (counter == ADDR_BYTES * 8 - 1) begin
+                            addr_valid <= 1'b1;
+                            counter <= 0;
+                            state <= COMPLETED_ITEM;
+                        end else begin
+                            counter <= counter + 1'd1;
+                        end
+                        addr <= {addr[(ADDR_BYTES*8-2):0], si};
                     end
 
                     WRITE_DATA : begin
-                        if (counter == 0)
-                            write_data_flag <= 1'b0;
-                        counter <= counter + 5'd1;
+                        if (counter == 'd7) begin
+                            write_data_valid <= 1'b1;
+                            counter <= 0;
+                            state <= COMPLETED_ITEM;
+                        end else begin
+                            counter <= counter + 5'd1;
+                        end
                         data    <= {data[6:0], si};
                     end
 
-                    READ_DUMMY : begin
-                        read_data_flag <= 1'b0;
-                        counter <= counter + 5'd1;
+                    DUMMY : begin
+                        if (counter == 0 && expect_read) begin
+                            read_data_request <= 1'b1;
+                        end
+                        if (counter == DUMMY_CYCLES - 1) begin
+                            counter <= 0;
+                            state <= COMPLETED_ITEM;
+                            dummy_ready <= 1'b1;
+                        end else begin
+                            counter <= counter + 5'd1;
+                        end
                     end
 
                     READ_DATA : begin
-                        read_data_flag <= 1'b0;
-                        counter <= counter + 5'd1;
+                        if (counter == 'd0) begin
+                            read_data_request <= 1'b1;
+                            counter <= 'd1;
+                        end else if (counter =='d7) begin
+                            counter <= 0;
+                            state <= COMPLETED_ITEM;
+                        end else begin
+                            counter <= counter + 1'd1;
+                        end
+                    end
+
+                    COMPLETED_ITEM : begin
+                        if (expect_write) begin
+                            write_data_valid <= 1'b0;
+                            data[0] <= si;
+                            counter <= 'd1;
+                            state <= WRITE_DATA;
+                        end else if (expect_read) begin
+                            // ERROR! we shouldn't be here!
+                            // We should already be in READ_DATA state
+                            state <= ERROR;
+                        end else if (expect_addr && !addr_valid) begin
+                            addr_valid <= 1'b0;
+                            addr[0] <= si;
+                            state <= WRITE_ADDR;
+                            counter <= 'd1;
+                        end else begin
+                            // We don't have next operation - IDLE
+                            state <= IDLE;
+                        end
+                    end
+
+                    ERROR : begin
+                        state <= IDLE;
                     end
                 endcase
             end

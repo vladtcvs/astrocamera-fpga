@@ -57,40 +57,44 @@ wire mosi;
 wire sck;
 wire cs;
 
-
+reg [7:0] opcode;
 reg [7:0] addr;
 reg [7:0] data_write;
-reg  read_flag = 1'b0;
-wire data_write_captured;
-wire read_data_flag_captured;
-
 wire [7:0] data_read;
-wire data_read_flag;
-wire data_read_ready;
-reg trigger = 1'b0;
+
+reg opcode_addr_trigger = 1'b0;
+reg data_trigger = 1'b0;
+reg finalize_trigger = 1'b0;
+
+reg addr_flag;
+wire opcode_addr_completed;
+
+wire data_ready;
+wire data_completed;
 
 calculate_received_bytes ___(clk, read_flag, read_data_flag_captured, data_read_flag);
 
-spi_memory_master#(1) spimaster(.main_clock(clk),
+spi_memory_master#(1,1) spimaster(.main_clock(clk),
                                 .sck(sck),
                                 .cs(cs),
                                 .mosi(mosi),
                                 .miso(miso),
 
-                                .opcode(8'h02),
+                                .opcode(opcode),
                                 .addr(addr),
-                                .dummy_cycles(4'd0),
+                                .dummy_cycles(8'd0),
                                 .write_data(data_write),
                                 .read_data(data_read),
 
-                                .addr_flag(1'b1),
-                                .write_data_flag(1'b0),
-                                .read_data_flag(data_read_flag),
+                                .opcode_addr_trigger(opcode_addr_trigger),
+                                .addr_flag(addr_flag),
+                                .opcode_addr_completed(opcode_addr_completed),
 
-                                .trigger(trigger),
-                                .write_data_captured(data_write_captured),
-                                .read_data_ready(data_read_ready),
-                                .read_data_flag_captured(read_data_flag_captured),
+                                .data_trigger(data_trigger),
+                                .data_ready(data_ready),
+                                .data_completed(data_completed),
+
+                                .finalize_trigger(finalize_trigger),
 
                                 .busy(busy));
 
@@ -100,13 +104,14 @@ initial begin
 clk = 1'b0;
 miso = 1'b1;
 addr = 8'hAB;
+data_write = 8'hC4;
+addr_flag = 1'b0;
+opcode = 8'h0;
 
-trigger = 1'b0;
-read_flag = 1'b1;
 `WAIT2
-trigger = 1'b1;
+opcode = 8'h9F;
+opcode_addr_trigger = 1;
 `WAIT2
-//data_read_trigger = 1'b0;
 `WAIT16
 `WAIT16
 `WAIT16
@@ -120,7 +125,15 @@ trigger = 1'b1;
 `WAIT16
 `WAIT16
 `WAIT16
-
+data_trigger = 1;
+`WAIT16
+`WAIT16
+`WAIT16
+`WAIT16
+`WAIT16
+`WAIT16
+finalize_trigger = 1;
+`WAIT16
 $stop;
 end
 

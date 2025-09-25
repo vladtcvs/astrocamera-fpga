@@ -1,7 +1,8 @@
 module top(clk,
            ctl_spi_sck, ctl_spi_cs, ctl_spi_si, ctl_spi_so,
-		   mem_qpi_sck, mem_qpi_cs, mem_qpi_io,
+           mem_qpi_sck, mem_qpi_cs, mem_qpi_io,
            flash_sck, flash_cs, flash_mosi, flash_miso, flash_we,
+           sram_qpi_sck, sram_qpi_io, sram_qpi_cs,
            leds);
 input  wire ctl_spi_sck;
 input  wire ctl_spi_cs;
@@ -17,6 +18,10 @@ output wire flash_cs;
 output wire flash_mosi;
 input  wire flash_miso;
 output wire flash_we;
+
+output wire sram_qpi_sck;
+inout wire[3:0] sram_qpi_io;
+output wire [3:0] sram_qpi_cs;
 
 input wire clk;
 output wire [3:0] leds;
@@ -35,7 +40,7 @@ slow_edge_refine ctl_cs_refine(.clk(clk), .in(ctl_spi_cs), .out(ctl_cs));
 slow_edge_refine mem_sck_refine(.clk(clk), .in(mem_qpi_sck), .out(mem_sck));
 slow_edge_refine mem_cs_refine(.clk(clk), .in(mem_qpi_cs), .out(mem_cs));
 
-controller ctl( .clk(clk),
+controller#(5) ctl( .clk(clk),
                 .ctl_spi_sck(ctl_sck),
                 .ctl_spi_cs(ctl_cs),
                 .ctl_spi_si(ctl_spi_si),
@@ -49,6 +54,10 @@ controller ctl( .clk(clk),
                 .flash_cs(flash_cs),
                 .flash_mosi(flash_mosi),
                 .flash_miso(flash_miso),
+
+                .sram_qpi_sck(sram_qpi_sck),
+                .sram_qpi_io(sram_qpi_io),
+                .sram_qpi_cs(sram_qpi_cs),
 
                 .status(status));
 

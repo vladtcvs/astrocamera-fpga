@@ -7,12 +7,11 @@ add wave  \
 	sim:/tester_spi_master_read/spimaster/cs \
 	sim:/tester_spi_master_read/spimaster/mosi \
 	sim:/tester_spi_master_read/spimaster/miso \
-	sim:/tester_spi_master_read/spimaster/trigger \
 	sim:/tester_spi_master_read/spimaster/state \
-        sim:/tester_spi_master_read/spimaster/read_data_flag \
         sim:/tester_spi_master_read/spimaster/read_data \
-        sim:/tester_spi_master_read/spimaster/read_in_progress \
-        sim:/tester_spi_master_read/spimaster/read_data_ready \
-        sim:/tester_spi_master_read/spimaster/read_data_flag_captured
+        sim:/tester_spi_master_read/spimaster/opcode_addr_trigger \
+        sim:/tester_spi_master_read/spimaster/opcode_addr_completed \
+        sim:/tester_spi_master_read/spimaster/data_trigger \
+        sim:/tester_spi_master_read/spimaster/data_completed
 
 run 10000ns

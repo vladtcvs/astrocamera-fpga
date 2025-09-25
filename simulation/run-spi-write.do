@@ -8,11 +8,13 @@ add wave  \
 	sim:/tester_spi_write/spislave/si \
 	sim:/tester_spi_write/spislave/so \
 	sim:/tester_spi_write/spislave/write_data \
-	sim:/tester_spi_write/spislave/write_data_flag \
-	sim:/tester_spi_write/spislave/command \
-	sim:/tester_spi_write/spislave/address \
+	sim:/tester_spi_write/spislave/write_data_valid \
+	sim:/tester_spi_write/spislave/cmd \
+	sim:/tester_spi_write/spislave/addr \
+	sim:/tester_spi_write/spislave/expect_addr \
+	sim:/tester_spi_write/spislave/addr_valid \
 	sim:/tester_spi_write/spislave/data \
 	sim:/tester_spi_write/spislave/state \
-	sim:/tester_spi_write/spislave/first_data_byte
+	sim:/tester_spi_write/spislave/expect_write
 
 run 10000ns
