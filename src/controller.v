@@ -62,18 +62,6 @@ module controller(  input clk,
     wire mem_operation_progress;
 
     reg mem_invalid_operation = 1'b0;
-    ///////////////////// SRAM + FLASH /////////////////////
-	reg [7:0]  memory_opcode = 8'h00;
-    reg [23:0] memory_addr = 24'h0;
-    reg [7:0]  memory_write = 8'hFF;
-    reg memory_addr_flag = 1'b0;
-    reg memory_opcode_addr_trigger = 1'b0;
-    reg memory_data_trigger = 1'b0;
-    reg memory_finalize_trigger = 1'b0;
-
-    reg memory_write_data_received = 1'b0;
-    reg memory_transmitted = 1'b0;
-	///////////////////// SRAM + FLASH /////////////////////
 
     ///////////////////// SRAM /////////////////////////////
     wire [7:0] sram_read;
@@ -104,7 +92,27 @@ module controller(  input clk,
     reg flash_access_not_ready = 1'b0;   
     ///////////////////// END FLASH /////////////////////////////
 
+    ///////////////////// SRAM + FLASH /////////////////////
     reg map_to_flash = 1'b0;
+    reg [7:0]  memory_opcode = 8'h00;
+    reg [23:0] memory_addr = 24'h0;
+    reg [7:0]  memory_write = 8'hFF;
+    reg memory_addr_flag = 1'b0;
+    reg memory_opcode_addr_trigger = 1'b0;
+    reg memory_data_trigger = 1'b0;
+    reg memory_finalize_trigger = 1'b0;
+
+    reg memory_write_data_received = 1'b0;
+    reg memory_transmitted = 1'b0;
+
+    wire memory_opcode_addr_completed  = map_to_flash ? flash_opcode_addr_completed : sram_opcode_addr_completed;
+    wire memory_data_trigger_captured  = map_to_flash ? flash_data_trigger_captured : sram_data_trigger_captured;
+    wire memory_data_ready             = map_to_flash ? flash_data_ready : sram_data_ready;
+    wire memory_data_completed         = map_to_flash ? flash_data_completed : sram_data_completed;
+    wire memory_finalize_completed     = map_to_flash ? flash_finalize_completed : sram_finalize_completed;
+	///////////////////// SRAM + FLASH /////////////////////
+
+    
 
     /* Common control */
     wire [7:0] memory_status = {2'h3,
@@ -383,7 +391,7 @@ module controller(  input clk,
         end
 
         SM_MEM_EXPECT_ADDR_COMPLETED: begin
-            if (sram_opcode_addr_completed) begin
+            if (memory_opcode_addr_completed) begin
                 memory_data_trigger <= 1'b0;
                 case (memory_opcode)
                 8'h02: begin // WRITE to memory
@@ -410,7 +418,7 @@ module controller(  input clk,
             if (!mem_operation_progress) begin
                 memory_finalize_trigger <= 1'b1;
                 sm_mem <= SM_MEM_WAIT_FINISH;
-            end else if (sram_data_completed && !mem_read_data_request) begin
+            end else if (memory_data_completed && !mem_read_data_request) begin
                 mem_read_data <= sram_read;
                 memory_data_trigger <= 1'b0;
                 sm_mem <= SM_MEM_EXPECT_READ;
@@ -433,14 +441,14 @@ module controller(  input clk,
             if (!mem_write_data_valid) begin
                 write_triggered <= 1'b1;
             end
-            if (write_triggered && sram_data_completed) begin
+            if (write_triggered && memory_data_completed) begin
                 sm_mem <= SM_MEM_EXPECT_WRITE;
                 memory_data_trigger <= 1'b0;
             end
         end
 
         SM_MEM_EXPECT_FINISH : begin
-            if (sram_finalize_completed) begin
+            if (memory_finalize_completed) begin
                 sm_mem <= SM_MEM_WAIT_FINISH;
             end
         end
