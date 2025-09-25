@@ -94,6 +94,7 @@ module controller(  input clk,
 
     ///////////////////// SRAM + FLASH /////////////////////
     reg map_to_flash = 1'b0;
+    reg map_to_flash_cache = 1'b0;
     reg [7:0]  memory_opcode = 8'h00;
     reg [23:0] memory_addr = 24'h0;
     reg [7:0]  memory_write = 8'hFF;
@@ -221,20 +222,46 @@ module controller(  input clk,
                                         .write_data(memory_write),
                                         .read_data(sram_read),
 
-                                        .opcode_addr_trigger(memory_opcode_addr_trigger),
+                                        .opcode_addr_trigger(memory_opcode_addr_trigger && !map_to_flash),
                                         .addr_flag(memory_addr_flag),
                                         .opcode_addr_completed(sram_opcode_addr_completed),
 
-                                        .data_trigger(memory_data_trigger),
+                                        .data_trigger(memory_data_trigger && !map_to_flash),
                                         .data_trigger_captured(sram_data_trigger_captured),
                                         .data_ready(sram_data_ready),
                                         .data_completed(sram_data_completed),
 
-                                        .finalize_trigger(memory_finalize_trigger),
+                                        .finalize_trigger(memory_finalize_trigger && !map_to_flash),
                                         .finalize_completed(sram_finalize_completed),
                                         .busy(sram_interface_busy),
                                         .state_out(sram_state));
 
+    spi_memory_master#(3, SPI_MASTER_SCALER_BITS) flash_master(
+                                        .main_clock(clk),
+                                        .sck(flash_sck),
+                                        .cs(flash_cs),
+                                        .mosi(flash_mosi),
+                                        .miso(flash_miso),
+
+                                        .opcode(memory_opcode),
+                                        .addr(memory_addr),
+                                        .dummy_cycles(8'd0),
+                                        .write_data(memory_write),
+                                        .read_data(flash_read),
+
+                                        .opcode_addr_trigger(memory_opcode_addr_trigger && map_to_flash),
+                                        .addr_flag(memory_addr_flag),
+                                        .opcode_addr_completed(flash_opcode_addr_completed),
+
+                                        .data_trigger(memory_data_trigger && map_to_flash),
+                                        .data_trigger_captured(flash_data_trigger_captured),
+                                        .data_ready(flash_data_ready),
+                                        .data_completed(flash_data_completed),
+
+                                        .finalize_trigger(memory_finalize_trigger && map_to_flash),
+                                        .finalize_completed(flash_finalize_completed),
+                                        .busy(flash_interface_busy),
+                                        .state_out(flash_state));
 
     integer counter = 0;
 
@@ -305,7 +332,7 @@ module controller(  input clk,
         SM_CTL_EXPECT_WRITE: begin
             if (ctl_write_data_valid) begin
                 if (ctl_addr == 8'h00) begin
-                    map_to_flash <= ctl_write_data[5];
+                    map_to_flash_cache <= ctl_write_data[5];
                 end else if (ctl_addr == 8'h01) begin
                     memory_finalize_trigger <= 1'b1;
                 end
@@ -334,13 +361,14 @@ module controller(  input clk,
         case (sm_mem)
  
         SM_MEM_IDLE: begin
+            map_to_flash <= map_to_flash_cache;
+            memory_finalize_trigger <= 1'b0;
+            memory_data_trigger <= 1'b0;
+            memory_opcode_addr_trigger <= 1'b0;
             if (mem_cmd_valid) begin
                 mem_expect_write <= 1'b0;
                 mem_expect_read <= 1'b0;
                 mem_expect_addr <= 1'b1;
-                memory_finalize_trigger <= 1'b0;
-                memory_data_trigger <= 1'b0;
-                memory_opcode_addr_trigger <= 1'b0;
                 sm_mem <= SM_MEM_EXPECT_ADDR;
             end
         end
@@ -419,7 +447,10 @@ module controller(  input clk,
                 memory_finalize_trigger <= 1'b1;
                 sm_mem <= SM_MEM_WAIT_FINISH;
             end else if (memory_data_completed && !mem_read_data_request) begin
-                mem_read_data <= sram_read;
+                if (map_to_flash)
+                    mem_read_data <= flash_read;
+                else
+                    mem_read_data <= sram_read;
                 memory_data_trigger <= 1'b0;
                 sm_mem <= SM_MEM_EXPECT_READ;
             end
@@ -450,6 +481,9 @@ module controller(  input clk,
         SM_MEM_EXPECT_FINISH : begin
             if (memory_finalize_completed) begin
                 sm_mem <= SM_MEM_WAIT_FINISH;
+                memory_finalize_trigger <= 1'b0;
+                memory_data_trigger <= 1'b0;
+                memory_opcode_addr_trigger <= 1'b0;
             end
         end
 
