@@ -69,8 +69,8 @@
 			</Bypass>
 			<File>/home/vlad/Develop/camera/camera-control-firmware/impl/pinwheel_fpga_impl.jed</File>
 			<MaskFile>/home/vlad/Aux/FPGA/lattice/diamond/data/vmdata/database/xpga/xp2/lfxp2-8.msk</MaskFile>
-			<FileTime>09/25/25 18:56:23</FileTime>
-			<JedecChecksum>0x4E96</JedecChecksum>
+			<FileTime>09/26/25 10:33:16</FileTime>
+			<JedecChecksum>0x2FE6</JedecChecksum>
 			<Operation>FLASH Erase,Program,Verify</Operation>
 			<Option>
 				<SVFVendor>JTAG STANDARD</SVFVendor>

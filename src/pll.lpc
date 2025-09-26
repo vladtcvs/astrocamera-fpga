@@ -1,7 +1,7 @@
 [Device]
 Family=latticexp2
-PartType=LFXP2-5E
-PartName=LFXP2-5E-5TN144I
+PartType=LFXP2-8E
+PartName=LFXP2-8E-5TN144I
 SpeedGrade=5
 Package=TQFP144
 OperatingCondition=IND
@@ -16,8 +16,8 @@ CoreRevision=5.8
 ModuleName=pll
 SourceFormat=Verilog HDL
 ParameterFileVersion=1.0
-Date=08/20/2025
-Time=05:43:34
+Date=09/26/2025
+Time=10:25:54
 
 [Parameters]
 Verilog=1
@@ -29,30 +29,30 @@ Order=None
 IO=0
 Type=ehxpllb
 mode=normal
-IFrq=50
-OFrq=50.000000
+IFrq=45
+OFrq=67.500000
 KFrq=
-U_OFrq=10
+U_OFrq=67.5
 U_KFrq=50
 OP_Tol=0.0
 OK_Tol=0.0
-Div=1
-Mult=1
-Post=16
+Div=2
+Mult=3
+Post=8
 SecD=2
 fb_mode=Internal
 PhaseDuty=Static
 DelayControl=No
 PCDR=0
 PDPDP=0
-ClkOPBp=1
+ClkOPBp=0
 EnCLKOS=0
-ClkOSBp=1
+ClkOSBp=0
 Phase=0.0
 Duty=8
 DPD=50% Duty
 EnCLKOK=0
-ClkOKBp=1
+ClkOKBp=0
 ClkRst=0
 DutyTrimP=Falling
 DelayMultP=0
@@ -62,4 +62,4 @@ ClkOSDelay=0
 enClkOK2=0
 
 [Command]
-cmd_line= -w -n pll -lang verilog -synth lse -arch mg5a00 -type pll -fin 50 -phase_cntl STATIC -bypassp -bypasss -bypassk -fclkop 50 -fclkop_tol 0.0 -fb_mode INTERNAL -noclkos -noclkok -norst -noclkok2
+cmd_line= -w -n pll -lang verilog -synth lse -arch mg5a00 -type pll -fin 45 -phase_cntl STATIC -fclkop 67.5 -fclkop_tol 0.0 -fb_mode INTERNAL -noclkos -noclkok -norst -noclkok2

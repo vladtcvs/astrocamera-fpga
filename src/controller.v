@@ -17,6 +17,16 @@ module controller(  input clk,
                     inout  wire [3:0] sram_qpi_io,
                     output  wire [3:0] sram_qpi_cs,
 
+                    input wire [11:0] ccd_adc,
+                    output wire [7:0] ccd_horizontal_phases,
+                    output wire [15:0] ccd_vertical_phases,
+                    output wire ccd_rg,
+                    output wire ccd_vsub,
+                    output wire ccd_xsub,
+                    output wire ccd_cds_1,
+                    output wire ccd_cds_2,
+                    output wire ccd_adc_sample,
+
                     output wire [7:0] status);
  
     parameter SPI_MASTER_SCALER_BITS = 10;
@@ -127,7 +137,7 @@ module controller(  input clk,
     wire [15:0] vertical_phases;
     wire [7:0] horizontal_phases;
     wire read_completed;
-    wire read_sample;
+    wire store_sample;
     //////////////////// END CCD CONFIG and WIRES //////////
 
     /* Common control */
@@ -282,11 +292,23 @@ module controller(  input clk,
                                         .state_out(flash_state));
 
     ccd_controller ccd(.clk(clk),
-                       .width(ccd_width), .height(ccd_height),
-                       .num_vertical_phases(num_vertical_phases), .num_horizontal_phases(num_horizontal_phases),
-                       .start_exposure(start_exposure), .complete_exposure(complete_exposure), .start_read(start_read),
-                       .vertical_phases(vertical_phases), .horizontal_phases(horizontal_phases),
-                       .read_completed(read_completed), .read_sample(read_sample));
+                       .width(ccd_width),
+                       .height(ccd_height),
+                       .num_vertical_phases(num_vertical_phases),
+                       .num_horizontal_phases(num_horizontal_phases),
+                       .start_exposure(start_exposure),
+                       .complete_exposure(complete_exposure),
+                       .start_read(start_read),
+                       .vertical_phases(ccd_vertical_phases),
+                       .horizontal_phases(ccd_horizontal_phases),
+                       .reset_gate(ccd_rg),
+                       .xsub(ccd_xsub),
+                       .vsub(ccd_vsub),
+                       .cds_1(ccd_cds_1),
+                       .cds_2(ccd_cds_2),
+                       .adc_sample(ccd_adc_sample),
+                       .read_completed(read_completed),
+                       .store_sample(store_sample));
 
     integer counter = 0;
 
@@ -309,6 +331,8 @@ module controller(  input clk,
 	    7'd0, sm_mem == SM_MEM_IDLE//sram_interface_busy
 	};
 
+    reg [11:0] last_adc = 'd0;
+
     assign ctl_read_data = (ctl_addr == 8'h00) ? memory_status : 
                            (ctl_addr == 8'h01) ? sram_status :
                            (ctl_addr == 8'h02) ? flash_status :
@@ -321,11 +345,18 @@ module controller(  input clk,
                            (ctl_addr == 8'h13) ? ccd_height[15:8] :
                            (ctl_addr == 8'h14) ? {4'h0, num_vertical_phases} :
                            (ctl_addr == 8'h15) ? {5'h0, num_horizontal_phases} :
+                           (ctl_addr == 8'h40) ? last_adc[7:0] :
+                           (ctl_addr == 8'h41) ? {4'h0, last_adc[11:8]} :
                             8'hAB;
 
     reg write_triggered = 1'b0;
+    reg prev_store_sample = 1'b0;
 
     always @ (posedge clk) begin
+        if (store_sample && !prev_store_sample) begin
+            last_adc <= ccd_adc;
+        end
+
 
         case (sm_ctl)
         SM_CTL_IDLE: begin
@@ -391,15 +422,20 @@ module controller(  input clk,
                 end
                 8'h20: begin
                     start_read <= 1'b0;
-                    start_exposure <= 1'b1;
+                    start_exposure <= 1'b0;
                     complete_exposure <= 1'b0;
                 end
                 8'h21: begin
                     start_read <= 1'b0;
-                    start_exposure <= 1'b0;
+                    start_exposure <= 1'b1;
                     complete_exposure <= 1'b1;
                 end
                 8'h22: begin
+                    start_read <= 1'b0;
+                    start_exposure <= 1'b0;
+                    complete_exposure <= 1'b1;
+                end
+                8'h23: begin
                     start_read <= 1'b1;
                     start_exposure <= 1'b0;
                     complete_exposure <= 1'b0;
@@ -576,6 +612,8 @@ module controller(  input clk,
             sm_mem <= SM_MEM_ERR;
         end
         endcase
+
+        prev_store_sample <= store_sample;
     end
 
 endmodule
